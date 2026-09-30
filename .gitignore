@@ -1,0 +1,65 @@
+# Node / Frontend
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python / Backend & ML
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Machine Learning & Data
+ml/models/resale/*.joblib
+ml/models/resale/*.pkl
+ml/models/resale/*.bin
+ml/models/recommendation/*.joblib
+ml/models/recommendation/*.pkl
+ml/models/recommendation/*.bin
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+
+# Environment variables & secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
