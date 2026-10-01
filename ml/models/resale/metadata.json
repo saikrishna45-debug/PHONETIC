@@ -1,0 +1,51 @@
+{
+    "project": "PHONETIC",
+    "model_name": "Resale Value Predictor",
+    "model_version": "v1",
+    "algorithm": "GradientBoostingRegressor",
+    "training_rows": 2550,
+    "test_rows": 450,
+    "input_feature_count": 21,
+    "processed_feature_count": 93,
+    "target": "estimated_resale_price_inr",
+    "target_unit": "INR",
+    "metrics": {
+        "mae_inr": 694.865392,
+        "rmse_inr": 990.54,
+        "r2": 0.9933
+    },
+    "model_parameters": {
+        "n_estimators": 300,
+        "learning_rate": 0.05,
+        "max_depth": 4,
+        "min_samples_leaf": 1,
+        "subsample": 1.0,
+        "random_state": 42
+    },
+    "numerical_features": [
+        "launch_price_inr",
+        "launch_year",
+        "age_years",
+        "ram_gb",
+        "storage_gb",
+        "display_hz",
+        "battery_health_pct",
+        "camera_mp"
+    ],
+    "categorical_features": [
+        "brand",
+        "model",
+        "processor",
+        "condition",
+        "screen_crack",
+        "scratches",
+        "box",
+        "charger",
+        "invoice",
+        "warranty",
+        "network",
+        "repair_history",
+        "seller_type"
+    ],
+    "dataset_note": "The current condition/resale dataset is synthetic. Model performance represents prototype validation and should not be interpreted as real-world marketplace accuracy."
+}

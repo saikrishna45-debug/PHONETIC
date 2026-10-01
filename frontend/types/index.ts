@@ -136,6 +136,37 @@ export interface SellPhoneFormData {
   originalCharger: boolean | null;
 }
 
+export interface ResaleModelRequest {
+  launch_price_inr: number;
+  launch_year: number;
+  age_years: number;
+  ram_gb: number;
+  storage_gb: number;
+  display_hz: number;
+  battery_health_pct: number;
+  camera_mp: number;
+  brand: string;
+  model: string;
+  processor: string;
+  condition: string;
+  screen_crack: string;
+  scratches: string;
+  box: string;
+  charger: string;
+  invoice: string;
+  warranty: string;
+  network: string;
+  repair_history: string;
+  seller_type: string;
+}
+
+export interface ResaleModelResponse {
+  estimated_resale_price_inr: number;
+  display_price_inr: number;
+  currency: "INR";
+  model_version: string;
+}
+
 export interface ResaleValueFactor {
   name: string;
   impact: "positive" | "negative" | "neutral";
@@ -210,12 +241,66 @@ export interface RecommendationMetrics {
   camera: number;
 }
 
+export type RecommendationApiPriorityFactor =
+  | "performance"
+  | "battery"
+  | "ram"
+  | "storage"
+  | "display"
+  | "price"
+  | "rating"
+  | "refresh_rate"
+  | "camera";
+
+export interface RecommendationApiRequest {
+  budget_min: number;
+  budget_max: number;
+  usage: RecommendationUsage[];
+  min_ram_gb: number;
+  min_storage_gb: number;
+  requires_5g: boolean;
+  min_battery_mah?: number;
+  preferred_display_min?: number;
+  preferred_display_max?: number;
+  priorities: Record<RecommendationApiPriorityFactor, number>;
+}
+
+export interface RecommendationApiSpecifications {
+  ram_gb: number | null;
+  storage_gb: number | null;
+  battery_mah: number | null;
+  processor_speed_ghz: number | null;
+  display_size_inches: number | null;
+  refresh_rate_hz: number | null;
+  has_5g: boolean | null;
+}
+
+export interface RecommendationApiItem {
+  id: string;
+  mobile_name: string;
+  brand: string;
+  price: number;
+  ratings: number;
+  match_score: number;
+  specifications: RecommendationApiSpecifications;
+  why_it_matches: string[];
+  tradeoffs: string[];
+  image_url: string | null;
+}
+
+export type RecommendationEngineItem = Omit<RecommendationApiItem, "id">;
+
+export interface RecommendationApiResponse {
+  recommendations: RecommendationEngineItem[];
+}
+
 export interface RankedPhoneRecommendation {
   phone: Phone;
   matchScore: number;
-  metrics: RecommendationMetrics;
+  metrics?: RecommendationMetrics;
   matchedReasons: string[];
   tradeoffs: string[];
+  apiRecommendation?: RecommendationApiItem;
 }
 
 export interface RecommendationExplanation {
@@ -228,7 +313,7 @@ export interface RecommendationResult {
   preferences: RecommendationPreferences;
   results: RankedPhoneRecommendation[];
   generatedAt: string;
-  isDemo: true;
+  isDemo: boolean;
 }
 
 // ------------------------------------

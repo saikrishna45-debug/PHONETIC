@@ -24,6 +24,14 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/lib/
+frontend/lib/*
+!frontend/lib/api/
+frontend/lib/api/*
+!frontend/lib/api/client.ts
+!frontend/lib/api/recommendations.ts
+!frontend/lib/api/resale.ts
+!frontend/lib/constants.ts
 lib64/
 parts/
 sdist/

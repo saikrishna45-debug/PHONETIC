@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -18,7 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { MOCK_SELL_PHONE_CATALOG } from "@/data/phones";
-import { predictResaleValue } from "@/lib/api/resale";
+import { predictResaleValue, ResaleApiError } from "@/lib/api/resale";
 import type { PhoneCondition, SellPhoneFormData } from "@/types/resale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,13 +51,14 @@ const initialForm: SellPhoneFormData = {
 
 const loadingStages = [
   "Checking device details",
-  "Reviewing condition information",
-  "Evaluating demo market factors",
-  "Preparing your estimate",
+  "Sending details to the resale model",
+  "Calculating your estimate",
+  "Preparing your result",
 ];
 
 export function SellWorkflow() {
   const router = useRouter();
+  const submissionInProgress = useRef(false);
   const [form, setForm] = useState<SellPhoneFormData>(initialForm);
   const [step, setStep] = useState(1);
   const [isPredicting, setIsPredicting] = useState(false);
@@ -109,6 +110,7 @@ export function SellWorkflow() {
   }
 
   async function runPrediction() {
+    if (submissionInProgress.current) return;
     const message = validateCurrentStep();
     if (message) {
       setError(message);
@@ -119,16 +121,14 @@ export function SellWorkflow() {
       return;
     }
 
+    submissionInProgress.current = true;
     setIsPredicting(true);
     setLoadingStage(0);
     setError("");
     try {
-      const resultPromise = predictResaleValue(form);
-      for (let index = 1; index < loadingStages.length; index += 1) {
-        await new Promise(resolve => setTimeout(resolve, 620));
-        setLoadingStage(index);
-      }
-      const prediction = await resultPromise;
+      setLoadingStage(1);
+      const prediction = await predictResaleValue(form);
+      setLoadingStage(3);
       const params = new URLSearchParams({
         brand: form.brand,
         model: form.model,
@@ -142,15 +142,17 @@ export function SellWorkflow() {
         previousRepair: String(form.previousRepair),
         originalBox: String(form.originalBox),
         originalCharger: String(form.originalCharger),
-        predictionId: prediction.id,
-        estimatedValue: String(prediction.estimatedValue),
-        rangeMin: String(prediction.range.min),
-        rangeMax: String(prediction.range.max),
+        estimatedResalePrice: String(prediction.estimated_resale_price_inr),
+        displayPrice: String(prediction.display_price_inr),
+        modelVersion: prediction.model_version,
       });
       router.push(`/app/sell/result?${params.toString()}`);
-    } catch {
+    } catch (error) {
+      submissionInProgress.current = false;
       setIsPredicting(false);
-      setError("Something went wrong while estimating your phone's value.");
+      setError(error instanceof ResaleApiError
+        ? error.message
+        : "We could not generate a resale estimate right now. Please try again.");
     }
   }
 
@@ -160,7 +162,7 @@ export function SellWorkflow() {
         <CardContent className="flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center sm:px-10">
           <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><Sparkles className="h-7 w-7" /></span>
           <h2 className="mt-5 text-2xl font-bold text-slate-950">Analyzing your phone...</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">This is a short demo prediction flow. No live model or market service is being queried.</p>
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">Your device details are being sent to the PHONETIC resale prediction service.</p>
           <div className="mt-7 w-full max-w-sm space-y-4 text-left" aria-live="polite">
             {loadingStages.map((stage, index) => (
               <div key={stage} className="flex items-center gap-3 text-sm">
@@ -171,7 +173,7 @@ export function SellWorkflow() {
               </div>
             ))}
           </div>
-          <Progress value={(loadingStage + 1) * 25} size="sm" className="mt-7 max-w-sm" aria-label="Demo prediction progress" />
+          <Progress value={(loadingStage + 1) * 25} size="sm" className="mt-7 max-w-sm" aria-label="Resale prediction progress" />
         </CardContent>
       </Card>
     );
@@ -279,7 +281,7 @@ export function SellWorkflow() {
           {step === 1 ? <Button type="button" variant="ghost" onClick={() => router.push("/app/dashboard")} className="min-h-11"><ArrowLeft className="h-4 w-4" />Back to Dashboard</Button> : <Button type="button" variant="ghost" onClick={backStep} className="min-h-11"><ArrowLeft className="h-4 w-4" />Back</Button>}
           {step < 4 ? <Button type="button" onClick={continueStep} disabled={!canContinue} className="min-h-11 w-full sm:w-auto">Continue<ArrowRight className="h-4 w-4" /></Button> : <Button type="button" onClick={() => { setAttempt(value => value + 1); void runPrediction(); }} disabled={!canContinue} className="min-h-11 w-full sm:w-auto"><ShieldCheck className="h-4 w-4" />Estimate Resale Value</Button>}
         </div>
-        {step === 4 && <p className="mt-3 text-center text-xs text-slate-500">Demo estimate only. No real model or market data is used.</p>}
+        {step === 4 && <p className="mt-3 text-center text-xs text-slate-500">Your estimate is generated by the PHONETIC resale model.</p>}
         {attempt > 0 && error && <Button type="button" variant="outline" onClick={() => void runPrediction()} className="mt-3 w-full">Try Again</Button>}
       </CardContent>
     </Card>

@@ -9,6 +9,8 @@ export type {
   SellPhoneModel,
   SellPhoneBrand,
   SellPhoneFormData,
+  ResaleModelRequest,
+  ResaleModelResponse,
   ResaleValueFactor,
   MockResalePrediction,
   SellPhoneResultPayload,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -19,7 +19,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { DEFAULT_RECOMMENDATION_PREFERENCES } from "@/data/recommendations";
-import { getRecommendations } from "@/lib/api/recommendations";
+import { getRecommendations, RecommendationApiError } from "@/lib/api/recommendations";
 import { formatINR } from "@/lib/utils";
 import type { RecommendationPreferences, RecommendationPriorityFactor, RecommendationUsage } from "@/types/recommendation";
 import { Button } from "@/components/ui/button";
@@ -44,10 +44,11 @@ const priorityOptions: { id: RecommendationPriorityFactor; label: string }[] = [
   { id: "storage", label: "Storage" },
   { id: "value", label: "Value for Money" },
 ];
-const loadingStages = ["Checking your budget", "Matching requirements", "Comparing smartphones", "Personalizing recommendations"];
+const loadingStages = ["Checking your preferences", "Sending your request", "Ranking matching smartphones", "Preparing your results"];
 
 export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION_PREFERENCES }: { initialPreferences?: RecommendationPreferences }) {
   const router = useRouter();
+  const submissionInProgress = useRef(false);
   const [preferences, setPreferences] = useState<RecommendationPreferences>(initialPreferences);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +71,7 @@ export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION
   }
 
   async function continueStep() {
+    if (submissionInProgress.current) return;
     if (!isValid) {
       setError("Select at least one activity to continue.");
       return;
@@ -80,20 +82,25 @@ export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION
       return;
     }
 
+    submissionInProgress.current = true;
     setIsLoading(true);
     setLoadingStage(0);
     setError("");
     try {
-      const recommendationRequest = getRecommendations(preferences);
-      for (let index = 1; index < loadingStages.length; index += 1) {
-        await new Promise(resolve => setTimeout(resolve, 550));
-        setLoadingStage(index);
-      }
-      await recommendationRequest;
-      router.push(`/app/buy/results?preferences=${encodeURIComponent(JSON.stringify(preferences))}`);
-    } catch {
+      setLoadingStage(1);
+      const recommendations = await getRecommendations(preferences, 5);
+      setLoadingStage(3);
+      const query = new URLSearchParams({
+        preferences: JSON.stringify(preferences),
+        recommendations: JSON.stringify({ recommendations }),
+      });
+      router.push(`/app/buy/results?${query.toString()}`);
+    } catch (error) {
+      submissionInProgress.current = false;
       setIsLoading(false);
-      setError("Unable to find recommendations right now. Please try again or adjust your preferences.");
+      setError(error instanceof RecommendationApiError
+        ? error.message
+        : "Unable to find recommendations right now. Please try again or adjust your preferences.");
     }
   }
 
@@ -103,7 +110,7 @@ export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION
         <CardContent className="flex min-h-[360px] flex-col items-center justify-center px-5 py-10 text-center sm:px-10">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><Sparkles className="h-6 w-6" /></span>
           <h2 className="mt-5 text-2xl font-bold text-slate-950">Finding phones for you...</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">Matching smartphones against your budget and preferences. This is a demo matching process, not a live ML service.</p>
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">Matching smartphones against your budget and preferences.</p>
           <div className="mt-7 w-full max-w-sm space-y-4 text-left" aria-live="polite">
             {loadingStages.map((stage, index) => <div key={stage} className="flex items-center gap-3 text-sm"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${index < loadingStage ? "bg-emerald-700 text-white" : index === loadingStage ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>{index < loadingStage ? <Check className="h-3.5 w-3.5" /> : index === loadingStage ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <span className="text-[10px]">{index + 1}</span>}</span><span className={index <= loadingStage ? "font-medium text-slate-800" : "text-slate-400"}>{stage}</span></div>)}
           </div>
@@ -161,7 +168,7 @@ export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION
         </section>}
 
         {step === 4 && <section aria-labelledby="priorities-step-heading">
-          <StepHeading id="priorities-step-heading" title="Which factors matter most?" description="Set a priority level for each factor. We use these to shape your mock ranking." />
+          <StepHeading id="priorities-step-heading" title="Which factors matter most?" description="Set a priority level for each factor." />
           <div className="mt-5 divide-y divide-slate-100 rounded-xl border border-slate-200 px-4">
             {priorityOptions.map(({ id, label }) => <div key={id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="flex items-center gap-2 text-sm font-medium text-slate-800"><PriorityIcon factor={id} />{label}</span><div className="flex gap-2">{(["high", "medium", "low"] as const).map(level => <button key={level} type="button" aria-pressed={preferences.priorities[id] === level} onClick={() => update("priorities", { ...preferences.priorities, [id]: level })} className={`min-h-9 min-w-20 rounded-lg border px-2 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${preferences.priorities[id] === level ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-500 hover:bg-slate-50"}`}>{level}</button>)}</div></div>)}
           </div>
@@ -170,7 +177,7 @@ export function RecommendationFlow({ initialPreferences = DEFAULT_RECOMMENDATION
         {error && <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">{error}</p>}
         <div className="mt-8 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           {step === 1 ? <Button type="button" variant="ghost" onClick={() => router.push("/app/dashboard")} className="min-h-11"><ArrowLeft className="h-4 w-4" />Back to Dashboard</Button> : <Button type="button" variant="ghost" onClick={() => { setStep(value => value - 1); setError(""); }} className="min-h-11"><ArrowLeft className="h-4 w-4" />Back</Button>}
-          <Button type="button" onClick={() => void continueStep()} disabled={!isValid} className="min-h-11 w-full sm:w-auto">{step === 4 ? "Find My Phone" : "Continue"}<ArrowRight className="h-4 w-4" /></Button>
+          <Button type="button" onClick={() => void continueStep()} disabled={!isValid || isLoading} className="min-h-11 w-full sm:w-auto">{step === 4 && error ? "Try Again" : step === 4 ? "Find My Phone" : "Continue"}<ArrowRight className="h-4 w-4" /></Button>
         </div>
       </CardContent>
     </Card>

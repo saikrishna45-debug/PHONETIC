@@ -11,4 +11,10 @@ export type {
   RecommendationMetrics,
   RankedPhoneRecommendation,
   RecommendationExplanation,
+  RecommendationApiPriorityFactor,
+  RecommendationApiRequest,
+  RecommendationApiSpecifications,
+  RecommendationApiItem,
+  RecommendationEngineItem,
+  RecommendationApiResponse,
 } from "./index";

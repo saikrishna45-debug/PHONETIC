@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, CheckCircle2, GitCompareArrows, Heart, ShieldCheck, Smartphone, X } from "lucide-react";
 import type { Phone, RecommendationExplanation, RecommendationPreferences } from "@/types/index";
+import type { RecommendationApiItem, RecommendationApiResponse } from "@/types/recommendation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +12,16 @@ import { PhoneImage } from "@/components/phones/phone-image";
 import { formatINR } from "@/lib/utils";
 import { getInitialSavedPhoneIds, readSavedPhoneIds, removeSavedPhoneId, savePhoneId, subscribeSavedPhoneIds } from "@/lib/saved-phones";
 
-export function PhoneDetailView({ phone, preferences, explanation, matchScore, hasPreferences }: { phone: Phone; preferences: RecommendationPreferences | null; explanation: RecommendationExplanation; matchScore: number | null; hasPreferences: boolean }) {
+export function PhoneDetailView({ phone, preferences, explanation, matchScore, hasPreferences, apiRecommendation, recommendationResults }: { phone: Phone; preferences: RecommendationPreferences | null; explanation: RecommendationExplanation; matchScore: number | null; hasPreferences: boolean; apiRecommendation: RecommendationApiItem | null; recommendationResults: RecommendationApiResponse | null }) {
   const [saveStatus, setSaveStatus] = useState("");
   const savedIds = useSyncExternalStore(subscribeSavedPhoneIds, readSavedPhoneIds, getInitialSavedPhoneIds);
   const saved = savedIds.includes(phone.id);
   const preferenceQuery = preferences ? encodeURIComponent(JSON.stringify(preferences)) : "";
+  const recommendationsQuery = recommendationResults ? `&recommendations=${encodeURIComponent(JSON.stringify(recommendationResults))}` : "";
+  const recommendationQuery = apiRecommendation ? `&recommendation=${encodeURIComponent(JSON.stringify(apiRecommendation))}` : "";
+  const backHref = recommendationResults
+    ? `/app/buy/results?${preferences ? `preferences=${preferenceQuery}&` : ""}recommendations=${encodeURIComponent(JSON.stringify(recommendationResults))}`
+    : preferences ? `/app/buy/results?preferences=${preferenceQuery}` : "/app/buy/results";
   const profile = phone.recommendationProfile;
   const specs = [
     ["RAM", phone.ram],
@@ -30,18 +36,18 @@ export function PhoneDetailView({ phone, preferences, explanation, matchScore, h
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8">
-      <Link href={hasPreferences ? `/app/buy/results?preferences=${preferenceQuery}` : "/app/buy/results"} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" />{hasPreferences ? "Back to Recommendations" : "Back"}</Link>
+      <Link href={backHref} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" />{hasPreferences || recommendationResults ? "Back to Recommendations" : "Back"}</Link>
       <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <PhoneImage model={phone.model} className="aspect-[4/3] min-h-56 rounded-2xl sm:aspect-[5/4]" priority />
+        <PhoneImage model={phone.model} imageUrl={apiRecommendation?.image_url ?? (phone.image.startsWith("https://") ? phone.image : undefined)} className="aspect-[4/3] min-h-56 rounded-2xl sm:aspect-[5/4]" priority />
         <Card className="border-slate-200 shadow-none">
           <CardContent className="flex h-full flex-col p-5 sm:p-7">
-            <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{phone.brand}</Badge>{phone.fiveG && <Badge variant="blue">5G</Badge>}<span className="text-xs text-amber-700">★ {phone.rating.toFixed(1)}</span>{matchScore !== null && <Badge variant="success">{matchScore}% Match · Demo</Badge>}</div>
+            <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{phone.brand}</Badge>{phone.fiveG && <Badge variant="blue">5G</Badge>}<span className="text-xs text-amber-700">★ {phone.rating.toFixed(1)}</span>{matchScore !== null && <Badge variant="success">{matchScore}% Match{apiRecommendation ? "" : " · Demo"}</Badge>}</div>
             <h1 className="mt-4 text-2xl font-bold text-slate-950 sm:text-3xl">{phone.model}</h1>
             <p className="mt-1 text-sm text-slate-600">{phone.variant}</p>
             <p className="mt-5 text-3xl font-bold text-slate-950">{formatINR(phone.price)}</p>
-            <p className="mt-1 text-xs text-slate-500">Catalog price shown for demo purposes.</p>
+            <p className="mt-1 text-xs text-slate-500">{apiRecommendation ? "Price returned by the recommendation service." : "Catalog price shown for demo purposes."}</p>
             <div className="mt-auto flex flex-col gap-2 pt-6 sm:flex-row">
-              <Button asChild variant="outline" className="min-h-11"><Link href={`/app/compare?phones=${encodeURIComponent(phone.id)}${preferences ? `&preferences=${preferenceQuery}` : ""}`}><GitCompareArrows className="h-4 w-4" />Compare</Link></Button>
+              <Button asChild variant="outline" className="min-h-11"><Link href={`/app/compare?phones=${encodeURIComponent(phone.id)}${preferences ? `&preferences=${preferenceQuery}` : ""}${recommendationQuery}${recommendationsQuery}`}><GitCompareArrows className="h-4 w-4" />Compare</Link></Button>
               <Button type="button" aria-label={saved ? "Remove saved phone" : "Save phone"} aria-pressed={saved} onClick={() => { if (saved) { removeSavedPhoneId(phone.id); setSaveStatus("Removed from saved phones."); } else { savePhoneId(phone.id); setSaveStatus("Saved in this browser."); } }} className="min-h-11"><Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />{saved ? "Saved to your phones" : "Save Phone"}</Button>
             </div>
             {saveStatus && <p role="status" className="mt-2 text-xs font-medium text-emerald-800">{saveStatus}</p>}
@@ -69,7 +75,7 @@ export function PhoneDetailView({ phone, preferences, explanation, matchScore, h
           </Card>
         </div>
       </div>
-      <p className="text-xs leading-5 text-slate-500">This is a demo recommendation using mock catalog information and local scoring. Prices and match details are not live offers.</p>
+      <p className="text-xs leading-5 text-slate-500">{apiRecommendation ? "Match details are from the PHONETIC recommendation service; catalog prices may differ from live offers." : "This is a demo recommendation using mock catalog information and local scoring. Prices and match details are not live offers."}</p>
     </div>
   );
 }

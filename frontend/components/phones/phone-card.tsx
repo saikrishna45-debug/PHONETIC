@@ -7,6 +7,7 @@ import { formatINR, calcDepreciation } from "@/lib/utils";
 import { Star, Bookmark, ArrowRight, GitCompareArrows, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoneImage } from "@/components/phones/phone-image";
+import type { RecommendationApiItem } from "@/types/recommendation";
 
 interface PhoneCardProps {
   phone: Phone;
@@ -16,14 +17,23 @@ interface PhoneCardProps {
   showImage?: boolean;
   showCompare?: boolean;
   priority?: boolean;
+  recommendation?: RecommendationApiItem;
+  recommendations?: RecommendationApiItem[];
 }
 
-export function PhoneCard({ phone, onSave, isSaved, matchScore, showImage = false, showCompare = false, priority = false }: PhoneCardProps) {
+export function PhoneCard({ phone, onSave, isSaved, matchScore, showImage = false, showCompare = false, priority = false, recommendation, recommendations = [] }: PhoneCardProps) {
   const depreciation = calcDepreciation(phone.launchPrice, phone.price);
+  const recommendationSet = recommendations.length ? recommendations : recommendation ? [recommendation] : [];
+  const serializedResult = recommendationSet.length
+    ? `&recommendations=${encodeURIComponent(JSON.stringify({ recommendations: recommendationSet }))}`
+    : "";
+  const serializedRecommendation = recommendation
+    ? `&recommendation=${encodeURIComponent(JSON.stringify(recommendation))}&matchScore=${recommendation.match_score}`
+    : "";
 
   return (
     <Card className="group hover:shadow-md transition-all duration-200">
-      {showImage && <PhoneImage model={phone.model} className="aspect-[16/8] rounded-t-2xl" priority={priority} />}
+      {showImage && <PhoneImage model={phone.model} imageUrl={phone.image.startsWith("https://") ? phone.image : undefined} className="aspect-[16/8] rounded-t-2xl" priority={priority} />}
       <CardContent className="p-5">
         {/* Header row */}
         <div className="flex items-start justify-between mb-3">
@@ -96,8 +106,8 @@ export function PhoneCard({ phone, onSave, isSaved, matchScore, showImage = fals
             )}
           </div>
           <div className="flex items-center gap-2">
-            {showCompare && <Button asChild variant="ghost" size="sm" className="text-xs gap-1"><Link href={`/app/compare?phones=${phone.id}`}><GitCompareArrows className="h-3 w-3" />Compare</Link></Button>}
-            <Button asChild variant="outline" size="sm" className="text-xs gap-1"><Link href={`/app/phone/${phone.id}`}><span>View</span><ArrowRight className="h-3 w-3" /></Link></Button>
+            {showCompare && <Button asChild variant="ghost" size="sm" className="text-xs gap-1"><Link href={`/app/compare?phones=${encodeURIComponent(phone.id)}${serializedRecommendation}${serializedResult}`}><GitCompareArrows className="h-3 w-3" />Compare</Link></Button>}
+            <Button asChild variant="outline" size="sm" className="text-xs gap-1"><Link href={`/app/phone/${encodeURIComponent(phone.id)}${recommendation ? `?recommendation=${encodeURIComponent(JSON.stringify(recommendation))}&matchScore=${recommendation.match_score}${serializedResult}` : ""}`}><span>View</span><ArrowRight className="h-3 w-3" /></Link></Button>
           </div>
         </div>
       </CardContent>

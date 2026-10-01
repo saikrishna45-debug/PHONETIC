@@ -1,17 +1,22 @@
 import { notFound } from "next/navigation";
 import { MOCK_PHONES } from "@/data/phones";
-import { explainPhoneMatch, parseRecommendationPreferences } from "@/lib/api/recommendations";
+import { explainPhoneMatch, parseRecommendationApiItem, parseRecommendationApiResponse, parseRecommendationPreferences, recommendationToPhone } from "@/lib/api/recommendations";
 import { PhoneDetailView } from "@/components/phones/phone-detail-view";
-import type { RecommendationExplanation } from "@/types/recommendation";
+import type { RecommendationApiResponse, RecommendationExplanation } from "@/types/recommendation";
 
 interface PhoneDetailsPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ preferences?: string | string[]; matchScore?: string | string[] }>;
+  searchParams: Promise<{ preferences?: string | string[]; matchScore?: string | string[]; recommendation?: string | string[]; recommendations?: string | string[] }>;
 }
 
 export default async function PhoneDetailsPage({ params, searchParams }: PhoneDetailsPageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const phone = MOCK_PHONES.find(item => item.id === id);
+  const serializedRecommendation = Array.isArray(query.recommendation) ? query.recommendation[0] : query.recommendation;
+  const serializedRecommendations = Array.isArray(query.recommendations) ? query.recommendations[0] : query.recommendations;
+  const apiRecommendation = parseRecommendationApiItem(serializedRecommendation);
+  const recommendationResults: RecommendationApiResponse | null = parseRecommendationApiResponse(serializedRecommendations);
+  const phone = MOCK_PHONES.find(item => item.id === id)
+    ?? (apiRecommendation?.id === id ? recommendationToPhone(apiRecommendation) : undefined);
   if (!phone) notFound();
 
   const serialized = Array.isArray(query.preferences) ? query.preferences[0] : query.preferences;
@@ -19,7 +24,11 @@ export default async function PhoneDetailsPage({ params, searchParams }: PhoneDe
   const parsedMatchScore = Number(matchScoreValue);
   const preferences = serialized ? parseRecommendationPreferences(serialized) : null;
   const explanation: RecommendationExplanation = preferences
-    ? explainPhoneMatch(phone, preferences)
+    ? apiRecommendation
+      ? { reasons: apiRecommendation.why_it_matches, tradeoffs: apiRecommendation.tradeoffs }
+      : explainPhoneMatch(phone, preferences)
+    : apiRecommendation
+      ? { reasons: apiRecommendation.why_it_matches, tradeoffs: apiRecommendation.tradeoffs }
     : {
         reasons: [
           `${phone.recommendationProfile?.ramGb ?? phone.ram} RAM and ${phone.recommendationProfile?.storageGb ?? phone.storage} storage.`,
@@ -29,5 +38,5 @@ export default async function PhoneDetailsPage({ params, searchParams }: PhoneDe
         tradeoffs: phone.cons.slice(0, 2),
       };
 
-  return <PhoneDetailView phone={phone} preferences={preferences} explanation={explanation} matchScore={Number.isFinite(parsedMatchScore) ? parsedMatchScore : null} hasPreferences={Boolean(serialized)} />;
+  return <PhoneDetailView phone={phone} preferences={preferences} explanation={explanation} matchScore={apiRecommendation?.match_score ?? (Number.isFinite(parsedMatchScore) ? parsedMatchScore : null)} hasPreferences={Boolean(serialized)} apiRecommendation={apiRecommendation} recommendationResults={recommendationResults} />;
 }

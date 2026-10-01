@@ -24,6 +24,7 @@ function phoneDisplayName(phone: Phone): string {
 
 interface CompareWorkspaceProps {
   initialPhoneIds: string[];
+  initialRecommendationPhones: Phone[];
   preferences: RecommendationPreferences | null;
 }
 
@@ -49,15 +50,16 @@ function formatStorage(gigabytes: number): string {
   return gigabytes >= 1024 ? `${gigabytes / 1024} TB` : `${gigabytes} GB`;
 }
 
-export function CompareWorkspace({ initialPhoneIds, preferences }: CompareWorkspaceProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(() => [...new Set(initialPhoneIds)].filter(id => MOCK_PHONES.some(phone => phone.id === id)).slice(0, MAX_COMPARE));
+export function CompareWorkspace({ initialPhoneIds, initialRecommendationPhones, preferences }: CompareWorkspaceProps) {
+  const availablePhones = [...MOCK_PHONES, ...initialRecommendationPhones];
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => [...new Set(initialPhoneIds)].filter(id => availablePhones.some(phone => phone.id === id)).slice(0, MAX_COMPARE));
   const [search, setSearch] = useState("");
   const [isComparing, setIsComparing] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const selectedPhones = selectedIds.map(id => MOCK_PHONES.find(phone => phone.id === id)).filter((phone): phone is Phone => Boolean(phone));
+  const selectedPhones = selectedIds.map(id => availablePhones.find(phone => phone.id === id)).filter((phone): phone is Phone => Boolean(phone));
   const query = search.trim().toLocaleLowerCase();
   const searchResults = query
-    ? MOCK_PHONES
+    ? availablePhones
         .filter(phone => !selectedIds.includes(phone.id) && `${phone.brand} ${phone.model}`.toLocaleLowerCase().includes(query))
         .slice(0, 6)
     : [];
@@ -84,7 +86,7 @@ export function CompareWorkspace({ initialPhoneIds, preferences }: CompareWorksp
 
       <section aria-labelledby="select-phones-heading" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 id="select-phones-heading" className="text-lg font-bold text-slate-950">Choose phones to compare</h2><p className="mt-1 text-xs text-slate-500">Select two or three phones from the mock catalog.</p></div>
+          <div><h2 id="select-phones-heading" className="text-lg font-bold text-slate-950">Choose phones to compare</h2><p className="mt-1 text-xs text-slate-500">Select two or three phones from the available smartphone list.</p></div>
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">{selectedIds.length} of {MAX_COMPARE} phones selected</span>
         </div>
 
@@ -120,7 +122,7 @@ function SelectedPhoneCard({ phone, onRemove }: { phone: Phone; onRemove: () => 
   const displayName = phoneDisplayName(phone);
   return <Card className="relative overflow-hidden border-slate-200 shadow-none">
     <CardContent className="flex items-center gap-3 p-3">
-      <PhoneImage model={phone.model} className="h-16 w-16 shrink-0 rounded-lg" />
+      <PhoneImage model={phone.model} imageUrl={phone.image.startsWith("https://") ? phone.image : undefined} className="h-16 w-16 shrink-0 rounded-lg" />
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{displayName}</p><p className="mt-1 truncate text-xs text-slate-500">{formatINR(phone.price)} · {phone.variant}</p></div>
       <button type="button" onClick={onRemove} aria-label={`Remove ${displayName}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"><X className="h-4 w-4" /></button>
     </CardContent>
