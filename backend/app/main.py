@@ -29,9 +29,11 @@ app.add_middleware(
 )
 
 from app.api.health import router as health_router
+from app.api.database import router as database_router
 from app.api.recommendations import router as recommendations_router
 from app.api.resale import router as resale_router
 
 app.include_router(health_router, prefix="/api", tags=["health"])
+app.include_router(database_router, prefix="/api", tags=["database"])
 app.include_router(recommendations_router, prefix="/api", tags=["recommendations"])
 app.include_router(resale_router, prefix="/api/resale", tags=["resale"])
